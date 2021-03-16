@@ -9,10 +9,11 @@ class myTool(bpy.types.Panel):
     
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
-        row.operator(AddFingerControl.bl_idname)
+#        row = layout.row()
+        layout.operator(AddFingerControl.bl_idname)
+        layout.operator(AddLegIk.bl_idname)
 
-# 手指控制
+
 class AddFingerControl(bpy.types.Operator):
     bl_idname = "bone.finger_control"
     bl_label = 'Add Finger Control'
@@ -46,10 +47,43 @@ class AddFingerControl(bpy.types.Operator):
 #                bpy.context.object.pose.bones["Bone"].constraints["Copy Rotation"].target_space = 'LOCAL'
         return {'FINISHED'}
 
+class AddLegIk(bpy.types.Operator):
+    bl_idname = "bone.leg_ik"
+    bl_label = 'Add Leg Ik'
+    
+    def execute(self, context):
+        obj = bpy.context.object
+        if (obj.mode == "POSE"):
+            bone = bpy.context.active_pose_bone
+            if bone:
+                # create ik bone
+                bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+                edit_bones = obj.data.edit_bones
+                ik_bone = edit_bones.new(bone.name + '.ik')
+                ik_bone.head = bone.tail
+                ik_bone.tail = (bone.tail.x, bone.tail.y+1.0, bone.tail.z)
+                bpy.ops.object.mode_set(mode='POSE')
+                if not [c for c in bone.constraints if c.type=='IK']:
+                    bone.constraints.new('IK')
+                crc = bone.constraints["IK"]
+                crc.target = obj
+                crc.subtarget = ik_bone.name
+                crc.chain_count = 2
+                # create pole bone
+                bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+                pole_bone = edit_bones.new(bone.name + '.pole')
+                pole_bone.head = (bone.head.x, bone.head.y-1.0, bone.head.z)
+                pole_bone.tail = (bone.head.x, bone.head.y-2.0, bone.head.z)
+                bpy.ops.object.mode_set(mode='POSE')
+                crc.pole_target = obj
+                crc.pole_angle = 1.5708
+                crc.pole_subtarget = pole_bone.name
+        return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(myTool)
     bpy.utils.register_class(AddFingerControl)
+    bpy.utils.register_class(AddLegIk)
 
 if __name__ == "__main__":
     register()
